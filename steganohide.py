@@ -1,7 +1,4 @@
-# http://python-pillow.org
-import hashlib
-
-from PIL import Image
+from PIL import Image  # http://python-pillow.org
 
 import argparse
 
@@ -37,23 +34,6 @@ def bits_to_string(b):
     return "".join(chars)
 
 
-def clear_lowest_bits_of_image(img):
-    """
-    Sets the least significant bits of an image to 0
-    :param img: Image to change
-    :return: new changed image
-    """
-    image_pixelmap = img.load()
-    for x in range(img.size[0]):
-        for y in range(img.size[1]):
-            r, g, b = image_pixelmap[x, y]
-            r -= r % 2
-            g -= g % 2
-            b -= b % 2
-            image_pixelmap[x, y] = r, g, b
-    return img.copy()
-
-
 def write_bits_to_image(bits, img):
     """
     Writes a String of bits to the least significant bits of an image
@@ -61,10 +41,16 @@ def write_bits_to_image(bits, img):
     :param img:
     :return:
     """
-    img = clear_lowest_bits_of_image(img)
     if len(bits) > (img.size[0] * img.size[1]) * 3:
         print("Got more text than pixels, message will get cropped!")
-    image_pixels = img.load()
+    image_pixelmap = img.load()
+    for x in range(img.size[0]):  # Set the least significant bits of an image to 0
+        for y in range(img.size[1]):
+            r, g, b = image_pixelmap[x, y]
+            r -= r % 2
+            g -= g % 2
+            b -= b % 2
+            image_pixelmap[x, y] = r, g, b
     for pixel_index in range(0, img.size[0] * img.size[1]):
         x = pixel_index % img.size[1]
         y = int(pixel_index / img.size[1])
@@ -72,11 +58,11 @@ def write_bits_to_image(bits, img):
         if len(bit_triple) == 0:
             break  # break if no text bits left
         bit_triple = bit_triple.ljust(3, "0")  # pad 0 to the right if less than 3 bits
-        r, g, b = image_pixels[x, y]
+        r, g, b = image_pixelmap[x, y]
         r += int(bit_triple[0])
         g += int(bit_triple[1])
         b += int(bit_triple[2])
-        image_pixels[x, y] = r, g, b
+        image_pixelmap[x, y] = r, g, b
     return img
 
 
@@ -86,9 +72,6 @@ def read_bits_from_image(img):
     :param img: Image to read from
     :return:
     """
-    # img = clear_lowest_bits_of_image(img)
-    # if len(bits) > (img.size[0] * img.size[1]) * 3:
-    #     print("Got more text than pixels, message will get cropped!")
     bits = []
     image_pixels = img.load()
     for pixel_index in range(0, img.size[0] * img.size[1]):
