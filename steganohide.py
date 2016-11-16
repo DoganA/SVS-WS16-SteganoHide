@@ -41,6 +41,11 @@ def write_bits_to_image(bits, img):
     :param img:
     :return:
     """
+    """
+    Last bit is always set to 1 and should be removed when reading.
+    This is necessary to find the end of the bit-sequence.
+    """
+    bits += '1'
     if len(bits) > (img.size[0] * img.size[1]) * 3:
         print("Got more text than pixels, message will get cropped!")
     image_pixelmap = img.load()
@@ -81,8 +86,10 @@ def read_bits_from_image(img):
         bits.append(r % 2)
         bits.append(g % 2)
         bits.append(b % 2)
+
     bits = [str(x) for x in bits]
-    return ''.join(bits)
+    bits = ''.join(bits).rstrip('0')
+    return bits[:-1]  # remove last bit
 
 
 """ MAIN """
