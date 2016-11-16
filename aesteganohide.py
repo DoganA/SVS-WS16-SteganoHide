@@ -9,8 +9,8 @@ parser = argparse.ArgumentParser()
 mode = parser.add_mutually_exclusive_group()
 mode.add_argument('-d', help='encrypt', action='store_true')
 mode.add_argument('-e', help='decrypt', action='store_true')
-parser.add_argument('-m', help='MAC key')
-parser.add_argument('-k', help='crypto key')
+parser.add_argument('-m', help='MAC key', required=True)
+parser.add_argument('-k', help='crypto key', required=True)
 parser.add_argument('text_path', nargs='?')
 parser.add_argument('image_path', nargs=1)
 args = parser.parse_args()
@@ -133,24 +133,6 @@ def check_hmac_sha256(hmac, key, text):
 
 
 """ MAIN """
-
-if not (args.e or args.d):
-    # Simple steganography mode
-    if args.text_path:
-        # text given -> hide it.
-        print('Hiding text in an image.')
-        image = Image.open(args.image_path[0])
-        image_out_path = args.image_path[0] + '.ste'
-        with open(args.text_path, 'r') as f:
-            text = "".join(f.readlines())
-        text_bits = string_to_bits(text)
-        image_out = write_bits_to_image(text_bits, image)
-        image_out.save(image_out_path, 'BMP')
-    else:
-        # no text given -> get text from image.
-        print('Get hidden text from an image:')
-        image = Image.open(args.image_path[0])
-        print(bits_to_string(read_bits_from_image(image)))
 
 if args.e:
     # Encryption mode
