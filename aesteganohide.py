@@ -6,6 +6,11 @@ from PIL import Image
 import argparse
 
 parser = argparse.ArgumentParser()
+mode = parser.add_mutually_exclusive_group()
+mode.add_argument('-d', help='encrypt', action='store_true')
+mode.add_argument('-e', help='decrypt', action='store_true')
+parser.add_argument('-m', help='MAC key')
+parser.add_argument('-k', help='crypto key')
 parser.add_argument('text_path', nargs='?')
 parser.add_argument('image_path', nargs=1)
 args = parser.parse_args()
@@ -102,20 +107,53 @@ def read_bits_from_image(img):
     return ''.join(bits)
 
 
+def generate_hmac_sha256(key, text):
+    """
+    Generates a sha256 hmac for given text and key
+    :param key: String, key
+    :param text: String, text
+    :return: String, hmac
+    """
+    key_hash = hashlib.sha256(key.encode('utf-8')).hexdigest()
+    x = key_hash+text
+    print(x)
+    return hashlib.sha256(x.encode('utf-8')).hexdigest()
+    pass  # TODO IMPLEMENT ME
+
+
+def check_hmac_sha256(hmac, key, text):
+    """
+    Checks whether hmac, key and text combination is correct or not
+    :param hmac: hmac to check
+    :param key: key
+    :param text: text
+    :return: True if correct, False if not valid
+    """
+    return generate_hmac_sha256(key, text) == hmac
+
+
 """ MAIN """
-# Simple steganography mode
-if args.text_path:
-    # text given -> hide it.
-    print('Hiding text in an image.')
-    image = Image.open(args.image_path[0])
-    image_out_path = args.image_path[0] + '.ste'
+
+if not (args.e or args.d):
+    # Simple steganography mode
+    if args.text_path:
+        # text given -> hide it.
+        print('Hiding text in an image.')
+        image = Image.open(args.image_path[0])
+        image_out_path = args.image_path[0] + '.ste'
+        with open(args.text_path, 'r') as f:
+            text = "".join(f.readlines())
+        text_bits = string_to_bits(text)
+        image_out = write_bits_to_image(text_bits, image)
+        image_out.save(image_out_path, 'BMP')
+    else:
+        # no text given -> get text from image.
+        print('Get hidden text from an image:')
+        image = Image.open(args.image_path[0])
+        print(bits_to_string(read_bits_from_image(image)))
+
+if args.e:
+    # Encryption mode
     with open(args.text_path, 'r') as f:
         text = "".join(f.readlines())
-    text_bits = string_to_bits(text)
-    image_out = write_bits_to_image(text_bits, image)
-    image_out.save(image_out_path, 'BMP')
-else:
-    # no text given -> get text from image.
-    print('Get hidden text from an image:')
-    image = Image.open(args.image_path[0])
-    print(bits_to_string(read_bits_from_image(image)))
+    print(generate_hmac_sha256(args.m, text))
