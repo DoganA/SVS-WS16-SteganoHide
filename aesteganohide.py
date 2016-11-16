@@ -1,5 +1,6 @@
 # http://python-pillow.org
 import hashlib
+import hmac
 
 from PIL import Image
 
@@ -39,7 +40,7 @@ def bits_to_string(b):
     for i in range(0, len(b), 8):
         char = chr(int(b[i:i + 8], 2))
         chars.append(char)
-    return "".join(chars)
+    return "".join(chars).rstrip(chr(0))  # remove trailing 0 characters since we don´t know where the message ends
 
 
 def clear_lowest_bits_of_image(img):
@@ -112,19 +113,17 @@ def generate_hmac_sha256(key, text):
     Generates a sha256 hmac for given text and key
     :param key: String, key
     :param text: String, text
-    :return: String, hmac
+    :return: String(hex), hmac
     """
-    key_hash = hashlib.sha256(key.encode('utf-8')).hexdigest()
-    x = key_hash+text
-    print(x)
-    return hashlib.sha256(x.encode('utf-8')).hexdigest()
-    pass  # TODO IMPLEMENT ME
+
+    key_hash = hashlib.sha256(key.encode('utf-8')).digest()
+    return hmac.new(key_hash, text.encode('utf-8'), digestmod=hashlib.sha256).hexdigest()
 
 
 def check_hmac_sha256(hmac, key, text):
     """
     Checks whether hmac, key and text combination is correct or not
-    :param hmac: hmac to check
+    :param hmac: String(hex), hmac to check
     :param key: key
     :param text: text
     :return: True if correct, False if not valid
@@ -134,8 +133,29 @@ def check_hmac_sha256(hmac, key, text):
 
 """ MAIN """
 
+key_hmac = args.m
+key_enc = args.k
+image = Image.open(args.image_path[0])
+image_out_path = args.image_path[0] + '.sae'
+
 if args.e:
-    # Encryption mode
     with open(args.text_path, 'r') as f:
         text = "".join(f.readlines())
-    print(generate_hmac_sha256(args.m, text))
+    generated_hmac = generate_hmac_sha256(key_hmac, text)
+    print('hmac', generated_hmac)
+    assert check_hmac_sha256(generated_hmac, key_hmac, text)
+    text_bits = string_to_bits(generated_hmac + text)
+    print('text bits', text_bits)
+    image_out = write_bits_to_image(text_bits, image)
+    image_out.save(image_out_path, 'BMP')
+
+if args.d:
+    bits = read_bits_from_image(image)
+    """
+    Since we store the hex value as part of the string, there are 8 bit for one hex char.
+    That means the sha256 output 256 bit = 64 hex chars = 64*8 bit
+    """
+    extracted_hmac = bits_to_string(bits[0:512])
+    extracted_text = bits_to_string(bits[512:])
+    print("MAC CHECK: ", check_hmac_sha256(extracted_hmac, key_hmac, extracted_text))
+    print(extracted_text)
