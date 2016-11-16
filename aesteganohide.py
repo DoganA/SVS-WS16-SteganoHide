@@ -128,12 +128,24 @@ def check_hmac_sha256(hmac, key, text):
     return generate_hmac_sha256(key, text) == hmac
 
 
-def encrypt_xtea(key, text):
+def encrypt_xtea(key, bits):
+    """
+    Hashes the key and encrypts with XTEA
+    :param key: String, key
+    :param bits: String of bits
+    :return: String of bits (encrypted)
+    """
     key_hash = hashlib.sha256(key.encode('utf-8')).digest()[0:16]  # take first 128 bit of hash
-    return xtea.encrypt(key_hash, text)
+    return xtea.encrypt(key_hash, bits)
 
 
 def decrypt_xtea(key, bits):
+    """
+    Hashes the key and decrypts with XTEA
+    :param key: String, key
+    :param bits: String of bits
+    :return: String of bits (decrypted)
+    """
     key_hash = hashlib.sha256(key.encode('utf-8')).digest()[0:16]  # take first 128 bit of hash
     return xtea.decrypt(key_hash, bits)
 
@@ -163,7 +175,7 @@ if args.e:
 
 
 
-    image_out = write_bits_to_image(text_bits, image)
+    image_out = write_bits_to_image(encrypted_bits, image)
     image_out.save(image_out_path, 'BMP')
 
 if args.d:
