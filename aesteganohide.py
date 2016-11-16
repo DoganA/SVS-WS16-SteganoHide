@@ -3,8 +3,8 @@ import hashlib
 import hmac
 
 from PIL import Image
-
 import argparse
+import xtea
 
 parser = argparse.ArgumentParser()
 mode = parser.add_mutually_exclusive_group()
@@ -92,9 +92,6 @@ def read_bits_from_image(img):
     :param img: Image to read from
     :return:
     """
-    # img = clear_lowest_bits_of_image(img)
-    # if len(bits) > (img.size[0] * img.size[1]) * 3:
-    #     print("Got more text than pixels, message will get cropped!")
     bits = []
     image_pixels = img.load()
     for pixel_index in range(0, img.size[0] * img.size[1]):
@@ -131,10 +128,19 @@ def check_hmac_sha256(hmac, key, text):
     return generate_hmac_sha256(key, text) == hmac
 
 
-""" MAIN """
+def encrypt_xtea(key, text):
+    key_hash = hashlib.sha256(key.encode('utf-8')).digest()[0:16]  # take first 128 bit of hash
+    return xtea.encrypt(key_hash, text)
 
+
+def decrypt_xtea(key, bits):
+    key_hash = hashlib.sha256(key.encode('utf-8')).digest()[0:16]  # take first 128 bit of hash
+    return xtea.decrypt(key_hash, bits)
+
+
+""" MAIN """
 key_hmac = args.m
-key_enc = args.k
+key_xtea = args.k
 image = Image.open(args.image_path[0])
 image_out_path = args.image_path[0] + '.sae'
 
@@ -142,10 +148,21 @@ if args.e:
     with open(args.text_path, 'r') as f:
         text = "".join(f.readlines())
     generated_hmac = generate_hmac_sha256(key_hmac, text)
-    print('hmac', generated_hmac)
     assert check_hmac_sha256(generated_hmac, key_hmac, text)
+
+
+
+
     text_bits = string_to_bits(generated_hmac + text)
-    print('text bits', text_bits)
+    encrypted_bits = encrypt_xtea(key_xtea, text_bits)
+    print(encrypted_bits)
+    print(bits_to_string(encrypted_bits))
+    decrypted_bits = decrypt_xtea(key_xtea, encrypted_bits)
+    print(decrypted_bits)
+    print(bits_to_string(decrypted_bits))
+
+
+
     image_out = write_bits_to_image(text_bits, image)
     image_out.save(image_out_path, 'BMP')
 
