@@ -50,6 +50,11 @@ def write_bits_to_image(bits, img):
     :param img:
     :return:
     """
+    """
+    Last bit is always set to 1 and should be removed when reading.
+    This is necessary to find the end of the bit-sequence.
+    """
+    bits += '1'
     if len(bits) > (img.size[0] * img.size[1]) * 3:
         print("Got more text than pixels, message will get cropped!")
     image_pixelmap = img.load()
@@ -90,8 +95,10 @@ def read_bits_from_image(img):
         bits.append(r % 2)
         bits.append(g % 2)
         bits.append(b % 2)
+
     bits = [str(x) for x in bits]
-    return ''.join(bits)
+    bits = ''.join(bits).rstrip('0')
+    return bits[:-1]  # remove last bit
 
 
 def generate_hmac_sha256(key, text):
@@ -150,20 +157,15 @@ if args.e:
         text = "".join(f.readlines())
     generated_hmac = generate_hmac_sha256(key_hmac, text)
     assert check_hmac_sha256(generated_hmac, key_hmac, text)
-
-    text_bits = string_to_bits(generated_hmac + text)
-    encrypted_bits = encrypt_xtea(key_xtea, text_bits)
-    print(encrypted_bits)
-    print(bits_to_string(encrypted_bits))
-    decrypted_bits = decrypt_xtea(key_xtea, encrypted_bits)
-    print(decrypted_bits)
-    print(bits_to_string(decrypted_bits))
-
-    image_out = write_bits_to_image(encrypted_bits, image)
+    text_with_hmac_bits = string_to_bits(generated_hmac + text)
+    text_with_hmac_xtea_bits = encrypt_xtea(key_xtea, text_with_hmac_bits)
+    assert bits_to_string(decrypt_xtea(key_xtea, text_with_hmac_xtea_bits)) == bits_to_string(text_with_hmac_bits)
+    image_out = write_bits_to_image(text_with_hmac_xtea_bits, image)
     image_out.save(image_out_path, 'BMP')
 
 if args.d:
     bits = read_bits_from_image(image)
+    bits = decrypt_xtea(key_xtea, bits)
     """
     Since we store the hex value as part of the string, there are 8 bit for one hex char.
     That means the sha256 output 256 bit = 64 hex chars = 64*8 bit
