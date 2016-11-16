@@ -1,14 +1,8 @@
-# http://python-pillow.org
-from PIL import Image
+from PIL import Image  # http://python-pillow.org
 
 import argparse
 
 parser = argparse.ArgumentParser()
-mode = parser.add_mutually_exclusive_group()
-mode.add_argument('-d', help='encrypt', action='store_true')
-mode.add_argument('-e', help='decrypt', action='store_true')
-parser.add_argument('-m', help='MAC key')
-parser.add_argument('-k', help='crypto key')
 parser.add_argument('text_path', nargs='?')
 parser.add_argument('image_path', nargs=1)
 args = parser.parse_args()
@@ -40,23 +34,6 @@ def bits_to_string(b):
     return "".join(chars)
 
 
-def clear_lowest_bits_of_image(img):
-    """
-    Sets the least significant bits of an image to 0
-    :param img: Image to change
-    :return: new changed image
-    """
-    image_pixelmap = img.load()
-    for x in range(img.size[0]):
-        for y in range(img.size[1]):
-            r, g, b = image_pixelmap[x, y]
-            r -= r % 2
-            g -= g % 2
-            b -= b % 2
-            image_pixelmap[x, y] = r, g, b
-    return img.copy()
-
-
 def write_bits_to_image(bits, img):
     """
     Writes a String of bits to the least significant bits of an image
@@ -64,10 +41,21 @@ def write_bits_to_image(bits, img):
     :param img:
     :return:
     """
-    img = clear_lowest_bits_of_image(img)
+    """
+    Last bit is always set to 1 and should be removed when reading.
+    This is necessary to find the end of the bit-sequence.
+    """
+    bits += '1'
     if len(bits) > (img.size[0] * img.size[1]) * 3:
         print("Got more text than pixels, message will get cropped!")
-    image_pixels = img.load()
+    image_pixelmap = img.load()
+    for x in range(img.size[0]):  # Set the least significant bits of an image to 0
+        for y in range(img.size[1]):
+            r, g, b = image_pixelmap[x, y]
+            r -= r % 2
+            g -= g % 2
+            b -= b % 2
+            image_pixelmap[x, y] = r, g, b
     for pixel_index in range(0, img.size[0] * img.size[1]):
         x = pixel_index % img.size[1]
         y = int(pixel_index / img.size[1])
@@ -75,24 +63,20 @@ def write_bits_to_image(bits, img):
         if len(bit_triple) == 0:
             break  # break if no text bits left
         bit_triple = bit_triple.ljust(3, "0")  # pad 0 to the right if less than 3 bits
-        r, g, b = image_pixels[x, y]
+        r, g, b = image_pixelmap[x, y]
         r += int(bit_triple[0])
         g += int(bit_triple[1])
         b += int(bit_triple[2])
-        image_pixels[x, y] = r, g, b
+        image_pixelmap[x, y] = r, g, b
     return img
 
 
 def read_bits_from_image(img):
     """
     Reads a String of bits from the least significant bits of an image
-    :param bits:
-    :param img:
+    :param img: Image to read from
     :return:
     """
-    # img = clear_lowest_bits_of_image(img)
-    # if len(bits) > (img.size[0] * img.size[1]) * 3:
-    #     print("Got more text than pixels, message will get cropped!")
     bits = []
     image_pixels = img.load()
     for pixel_index in range(0, img.size[0] * img.size[1]):
@@ -102,22 +86,26 @@ def read_bits_from_image(img):
         bits.append(r % 2)
         bits.append(g % 2)
         bits.append(b % 2)
+
     bits = [str(x) for x in bits]
-    return ''.join(bits)
+    bits = ''.join(bits).rstrip('0')
+    return bits[:-1]  # remove last bit
 
 
 """ MAIN """
-if not args.e and not args.d:
-    if args.text_path:
-        print('Hiding text in an image.')
-        image = Image.open(args.image_path[0])
-        image_out_path = args.image_path[0] + '.ste'
-        with open(args.text_path, 'r') as f:
-            text = "".join(f.readlines())
-        text_bits = string_to_bits(text)
-        image_out = write_bits_to_image(text_bits, image)
-        image_out.save(image_out_path, 'BMP')
-    else:
-        print('Get hidden text from an image.')
-        image = Image.open(args.image_path[0])
-        print(bits_to_string(read_bits_from_image(image)))
+# Simple steganography mode
+if args.text_path:
+    # text given -> hide it.
+    print('Hiding text in an image.')
+    image = Image.open(args.image_path[0])
+    image_out_path = args.image_path[0] + '.ste'
+    with open(args.text_path, 'r') as f:
+        text = "".join(f.readlines())
+    text_bits = string_to_bits(text)
+    image_out = write_bits_to_image(text_bits, image)
+    image_out.save(image_out_path, 'BMP')
+else:
+    # no text given -> get text from image.
+    print('Get hidden text from an image:')
+    image = Image.open(args.image_path[0])
+    print(bits_to_string(read_bits_from_image(image)))
