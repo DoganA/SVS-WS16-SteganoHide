@@ -160,6 +160,7 @@ if args.e:
     text_with_hmac_bits = string_to_bits(generated_hmac + text)
     text_with_hmac_xtea_bits = encrypt_xtea(key_xtea, text_with_hmac_bits)
     assert bits_to_string(decrypt_xtea(key_xtea, text_with_hmac_xtea_bits)) == bits_to_string(text_with_hmac_bits)
+    assert bits_to_string(text_with_hmac_xtea_bits) != bits_to_string(text_with_hmac_bits)
     image_out = write_bits_to_image(text_with_hmac_xtea_bits, image)
     image_out.save(image_out_path, 'BMP')
 

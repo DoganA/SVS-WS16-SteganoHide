@@ -1,5 +1,17 @@
+import random
+
 NUM_CYCLES = 32
-IV = '0000000100000010000000110000010000000101000001100000011100001000'
+
+
+def generate_random_iv():
+    """
+    Generates an 64 bit random IV
+    :return: String of bits
+    """
+    bits = []
+    for i in range(0, 64):
+        bits.append(str(round(random.random())))
+    return ''.join(bits)
 
 
 def encrypt(key, bits):
@@ -13,7 +25,9 @@ def encrypt(key, bits):
     blocks = _split_into_blocks(bits)
     for block in blocks:
         if len(cypher_blocks) == 0:
-            cypher_block = _encrypt_one_block(key, IV)
+            iv = generate_random_iv()
+            cypher_block = _encrypt_one_block(key, iv)
+            cypher_blocks.append(iv)  # set iv as first block in output
         else:
             cypher_block = _encrypt_one_block(key, cypher_blocks[-1:][0])
         cypher_blocks.append(_xor(block, cypher_block))
@@ -29,14 +43,12 @@ def decrypt(key, cypherbits):
     :return: String of bits
     """
     cypher_blocks = _split_into_blocks(cypherbits)
+    IV = cypher_blocks[0]
+    cypher_blocks = cypher_blocks[1:]
     blocks = []
-    last_cypher_block = False
+    last_cypher_block = IV
     for cypher_block in cypher_blocks:
-        if not last_cypher_block:
-            block = _encrypt_one_block(key, IV)
-        else:
-            block = _encrypt_one_block(key, last_cypher_block)
-
+        block = _encrypt_one_block(key, last_cypher_block)
         blocks.append(_xor(block, cypher_block))
         last_cypher_block = cypher_block
 
